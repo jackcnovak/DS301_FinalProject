@@ -1,0 +1,27 @@
+---
+title: "Data_Code_Cleaning"
+author: "Caroly Coronado- Vargas"
+date: "5/4/2022"
+output: html_document
+---
+
+```{r}
+salary1 <- read.csv(file = 'ds_salary_data.csv')
+region_key <- data.frame(state.abb, state.region)
+salary1$state.abb <- as.factor(salary1$Job.Location)
+salary<- merge(salary1,region_key, by = "state.abb")
+
+salary<- salary[,-c(1,2,4,7,9,11,12)] 
+salary$Size <- as.factor(salary$Size)
+salary$Type.of.ownership<- as.factor(salary$Type.of.ownership)
+salary$Sector <- as.factor(salary$Sector)
+salary$Hourly <- as.factor(salary$Hourly)
+salary$Python <- as.factor(salary$Python)
+salary$excel <- as.factor(salary$excel)
+salary$sql <- as.factor(salary$sql)
+salary$sas <- as.factor(salary$sas)
+salary$tableau <- as.factor(salary$tableau)
+salary$job_title_sim <- as.factor(salary$job_title_sim)
+salary$Degree <- as.factor(salary$Degree)
+str(salary)
+```
