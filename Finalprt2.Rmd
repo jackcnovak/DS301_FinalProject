@@ -34,6 +34,8 @@ salary$sas <- as.factor(salary$sas)
 salary$tableau <- as.factor(salary$tableau)
 salary$job_title_sim <- as.factor(salary$job_title_sim)
 salary$Degree <- as.factor(salary$Degree)
+
+trimed = salary[!(salary$Degree == "na"),]
 ```
 
   
@@ -94,3 +96,33 @@ d_multi <- tibble("target" = test$state.region ,"prediction" = predictions)
 conf_mat1 <- confusion_matrix(targets = d_multi$target, predictions = d_multi$prediction)
 plot_confusion_matrix(conf_mat1$`Confusion Matrix`[[1]])
 ```
+
+  lastly classifying if some jobs require specific degrees
+```{r}
+model8 <- glm(job_title_sim ~ Degree, data = train)
+predictions <- predict(model8, newdata = test)
+predictions <- round(predictions, digits = 0)
+
+d_multi <- tibble("target" = test$job_title_sim ,"prediction" = predictions)
+conf_mat1 <- confusion_matrix(targets = d_multi$target, predictions = d_multi$prediction)
+plot_confusion_matrix(conf_mat1$`Confusion Matrix`[[1]])
+
+# Trimmed Na values from the degree to see if it was skewing the outcome
+trimed$job_title_sim <- as.numeric(trimed$job_title_sim)
+trimed$Degree <- as.numeric(trimed$Degree)
+trimed$state.region <- as.numeric(trimed$state.region)
+
+splt<- sample(c(rep(0, 0.7 * nrow(trimed)), rep(1, 0.3 * nrow(trimed))))
+train <- salary[splt == 0, ]
+test <- salary[splt == 1, ] 
+
+model9 <- glm(job_title_sim ~ Degree, data = train)
+predictions <- predict(model9, newdata = test)
+predictions <- round(predictions, digits = 0)
+
+d_multi <- tibble("target" = test$job_title_sim ,"prediction" = predictions)
+conf_mat1 <- confusion_matrix(targets = d_multi$target, predictions = d_multi$prediction)
+plot_confusion_matrix(conf_mat1$`Confusion Matrix`[[1]])
+```
+
+  To conclude Degree appears to be an impactful predictor to job title, but does not see to be as large as important as other factors in the data set.
