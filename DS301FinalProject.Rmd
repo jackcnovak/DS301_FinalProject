@@ -1,0 +1,185 @@
+---
+title: "DS301FinalProject"
+author: "Jack Novak"
+date: "5/5/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(glmnet)
+library(readr)
+library(MASS)
+library(class)
+library(leaps)
+library(dplyr)
+library(car)
+library(cvms)
+library(tibble)
+options(warn = -1)
+```
+
+#credit Caroly Coronado-Vargas
+```{r}
+salary1 <- read.csv(file ='ds_salary_data.csv')
+region_key <- data.frame(state.abb, state.region)
+salary1$state.abb <- as.factor(salary1$Job.Location)
+salary<- merge(salary1,region_key, by = "state.abb")
+salary<- salary[,-c(1,2,4,7,9,11,12)] 
+salary$Size <- as.factor(salary$Size)
+salary$Type.of.ownership<- as.factor(salary$Type.of.ownership)
+salary$Sector <- as.factor(salary$Sector)
+salary$Hourly <- as.factor(salary$Hourly)
+salary$Python <- as.factor(salary$Python)
+salary$excel <- as.factor(salary$excel)
+salary$sql <- as.factor(salary$sql)
+salary$sas <- as.factor(salary$sas)
+salary$tableau <- as.factor(salary$tableau)
+salary$job_title_sim <- as.factor(salary$job_title_sim)
+salary$Degree <- as.factor(salary$Degree)
+trimed = salary[!(salary$Degree == "na"),]
+```
+
+
+# John's Portion
+### Basic first models
+
+```{r}
+#basic logistic regression with all listed degree levels including na
+model2 <- glm(Degree ~ Avg.Salary.K.+Python+excel+sql+sas+aws+tableau, data = salary, family = binomial)
+summary(model2)
+#basic logistic regression with all listed degree levels including na
+model4 <- glm(job_title_sim ~ Avg.Salary.K.+Python+excel+sql+sas+aws+tableau+Degree, data = salary, family = binomial)
+summary(model4)
+```
+
+### data classification
+```{r}
+set.seed(7)
+salary$job_title_sim <- as.numeric(salary$job_title_sim)
+salary$Degree <- as.numeric(salary$Degree)
+salary$state.region <- as.numeric(salary$state.region)
+splt<- sample(c(rep(0, 0.7 * nrow(salary)), rep(1, 0.3 * nrow(salary))))
+train <- salary[splt == 0, ]
+test <- salary[splt == 1, ] 
+```
+
+  classify expected job using all other variables
+```{r}
+model5 <- glm(job_title_sim ~., data = train)
+predictions <- predict(model5, newdata = test)
+predictions <- round(predictions, digits = 0)
+d_multi <- tibble("target" = test$job_title_sim ,"prediction" = predictions)
+conf_mat1 <- confusion_matrix(targets = d_multi$target, predictions = d_multi$prediction)
+plot_confusion_matrix(conf_mat1$`Confusion Matrix`[[1]])
+```
+
+  classify expected education using all other variables
+```{r}
+model6 <- glm(Degree ~., data = train)
+predictions <- predict(model6, newdata = test)
+predictions <- round(predictions, digits = 0)
+d_multi <- tibble("target" = test$Degree ,"prediction" = predictions)
+conf_mat1 <- confusion_matrix(targets = d_multi$target, predictions = d_multi$prediction)
+plot_confusion_matrix(conf_mat1$`Confusion Matrix`[[1]])
+```
+
+  classify expected location using all other variables
+```{r}
+model7 <- glm(state.region ~., data = train)
+predictions <- predict(model7, newdata = test)
+predictions <- round(predictions, digits = 0)
+predictions <- ifelse(predictions == 5, 4, predictions)
+d_multi <- tibble("target" = test$state.region ,"prediction" = predictions)
+conf_mat1 <- confusion_matrix(targets = d_multi$target, predictions = d_multi$prediction)
+plot_confusion_matrix(conf_mat1$`Confusion Matrix`[[1]])
+```
+
+  lastly classifying if some jobs require specific degrees
+```{r}
+model8 <- glm(job_title_sim ~ Degree, data = train)
+predictions <- predict(model8, newdata = test)
+predictions <- round(predictions, digits = 0)
+d_multi <- tibble("target" = test$job_title_sim ,"prediction" = predictions)
+conf_mat1 <- confusion_matrix(targets = d_multi$target, predictions = d_multi$prediction)
+
+plot_confusion_matrix(conf_mat1$`Confusion Matrix`[[1]])
+# Trimmed Na values from the degree to see if it was skewing the outcome
+trimed$job_title_sim <- as.numeric(trimed$job_title_sim)
+trimed$Degree <- as.numeric(trimed$Degree)
+trimed$state.region <- as.numeric(trimed$state.region)
+splt<- sample(c(rep(0, 0.7 * nrow(trimed)), rep(1, 0.3 * nrow(trimed))))
+train <- salary[splt == 0, ]
+test <- salary[splt == 1, ] 
+model9 <- glm(job_title_sim ~ Degree, data = train)
+predictions <- predict(model9, newdata = test)
+predictions <- round(predictions, digits = 0)
+d_multi <- tibble("target" = test$job_title_sim ,"prediction" = predictions)
+conf_mat1 <- confusion_matrix(targets = d_multi$target, predictions = d_multi$prediction)
+plot_confusion_matrix(conf_mat1$`Confusion Matrix`[[1]])
+```
+
+  To conclude Degree appears to be an impactful predictor to job title, but does not see to be as large as important as other factors in the data set.
+  
+# KNN by Jack
+  
+```{r}
+n<-nrow(salary)
+salary<-salary%>%
+  dplyr::select(Rating, Avg.Salary.K., Age, Degree)
+
+standardized.X = scale(salary)
+
+#80-20 split
+test = sample(1:n, 0.2*n)
+
+train.X = standardized.X[-test,-4]
+test.X = standardized.X[test,-4]
+train.Y = salary$Degree[-test]
+test.Y = salary$Degree[test]
+
+#k = 1
+knn.pred = knn(train.X,test.X,train.Y,k=1)
+head(knn.pred)
+
+table(knn.pred,test.Y)
+mean(test.Y!=knn.pred)
+```
+  
+```{r}
+k=3
+knn.pred = knn(train.X,test.X,train.Y,k=3)
+head(knn.pred)
+
+table(knn.pred,test.Y)
+mean(test.Y!=knn.pred)
+```
+  
+```{r}
+# k=5
+knn.pred = knn(train.X,test.X,train.Y,k=1)
+head(knn.pred)
+
+table(knn.pred,test.Y)
+mean(test.Y!=knn.pred)
+```
+  
+```{r}
+# k = 7
+knn.pred = knn(train.X,test.X,train.Y,k=7)
+head(knn.pred)
+
+table(knn.pred,test.Y)
+mean(test.Y!=knn.pred)
+```
+  
+```{r}
+# k = 9
+knn.pred = knn(train.X,test.X,train.Y,k=9)
+head(knn.pred)
+
+table(knn.pred,test.Y)
+mean(test.Y!=knn.pred)
+```
+  
+  
