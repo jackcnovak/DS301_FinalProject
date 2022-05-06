@@ -1,0 +1,218 @@
+---
+title: "MLR_FinalProject"
+author: "Adnan Salihovic"
+date: "5/4/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+salary1 = read.csv("ds_salary_data.csv",header=TRUE)
+
+region_key <- data.frame(state.abb, state.region)
+salary1$state.abb <- as.factor(salary1$Job.Location)
+salary<- merge(salary1,region_key, by = "state.abb")
+salary<- salary[,-c(1,2,4,7,9,11,12)] 
+salary$Size <- as.factor(salary$Size)
+salary$Type.of.ownership<- as.factor(salary$Type.of.ownership)
+salary$Sector <- as.factor(salary$Sector)
+salary$Hourly <- as.factor(salary$Hourly)
+salary$Python <- as.factor(salary$Python)
+salary$excel <- as.factor(salary$excel)
+salary$sql <- as.factor(salary$sql)
+salary$sas <- as.factor(salary$sas)
+salary$tableau <- as.factor(salary$tableau)
+salary$job_title_sim <- as.factor(salary$job_title_sim)
+salary$Degree <- as.factor(salary$Degree)
+
+str(salary)
+```
+
+```{r}
+salary1 <- read.csv(file = 'ds_salary_data.csv')
+region_key <- data.frame(state.abb, state.region)
+salary1$state.abb <- as.factor(salary1$Job.Location)
+salary<- merge(salary1,region_key, by = "state.abb")
+salary<- salary[,-c(1,2,4,7,9,11,12)] 
+salary$Size <- as.factor(salary$Size)
+salary$Type.of.ownership<- as.factor(salary$Type.of.ownership)
+salary$Sector <- as.factor(salary$Sector)
+salary$Hourly <- as.factor(salary$Hourly)
+salary$Python <- as.factor(salary$Python)
+salary$excel <- as.factor(salary$excel)
+salary$sql <- as.factor(salary$sql)
+salary$sas <- as.factor(salary$sas)
+salary$aws <- as.factor(salary$aws)
+salary$tableau <- as.factor(salary$tableau)
+salary$job_title_sim <- as.factor(salary$job_title_sim)
+salary$Degree <- as.factor(salary$Degree)
+salary<- salary[,-c(4)] 
+str(salary)
+```
+
+#### Ridge Regression: ####
+
+```{r}
+library(glmnet)
+x = model.matrix(Avg.Salary.K.~.,data=salary)[,-5] 
+#the [,-1] removes the intercept term. 
+Y = salary$Avg.Salary.K.
+## glmnet() has an alpha argument that determines what type of model is fit. 
+## If alpha = 0, then a ridge regression model is fit. 
+## If alpha = 1, then a lasso model is fit. 
+## First choose a range of lambda values: 
+grid = 10^seq(10,-2,length=100)
+ridge_model = glmnet(x,Y,alpha=0, lambda=grid)
+```
+
+#### Choosing Lambda ####
+
+```{r}
+### split into training and testing
+set.seed(13)
+train = sample(1:nrow(x), nrow(x)/2)
+test =(-train)
+Y.test = Y[test]
+ridge.train = glmnet(x[train,],Y[train],alpha=0,lambda=grid)
+### select an optimal lambda 
+set.seed(13)
+cv.out = cv.glmnet(x[train,],Y[train],alpha = 0, lambda = grid) 
+#default performs 10-fold CV, but you can change this using the argument `nfolds` 
+plot(cv.out)
+bestlambdaR = cv.out$lambda.min
+bestlambdaR
+## what is the test MSE associated with this value of lambda? 
+### glmnet() has its own predict() function! This is different than the predict() 
+## we are use to using, so the syntax is slightly different. 
+ridge.pred = predict(ridge.train,s=bestlambdaR,newx=x[test,])
+mean((ridge.pred-Y.test)^2)
+## We can refit the ridge regression model on the full data set, using the value 
+## of lambda chosen by cross-validation: 
+final = glmnet(x,Y,alpha=0,lambda = bestlambdaR)
+coef(final)
+```
+
+#### RIDGE 2.2 ####
+
+```{r}
+bestlambdaR2.2=cv.out$lambda.1se
+bestlambdaR2.2
+which(grid==bestlambdaR2.2)
+ridge.train$lambda[68]
+coef(ridge.train)[,68]
+ridge.pred2 = predict(ridge.train,s=bestlambdaR2.2,newx=x[test,])
+mean((ridge.pred2-Y.test)^2)
+final.ridge = glmnet(x,Y,alpha=1,lambda=bestlambda2.2)
+```
+
+#### LASSO (Lowest Test MSE) ####
+
+```{r}
+cv.out.lasso = cv.glmnet(x[train,],Y[train],alpha = 1, lambda = grid) 
+#default performs 10-fold CV, but you can change this using the argument `nfolds` 
+plot(cv.out.lasso)
+bestlambda2 = cv.out.lasso$lambda.min
+bestlambda2
+lasso.train = glmnet(x[train,],Y[train],alpha=1,lambda=grid)
+which(grid==bestlambda2)
+lasso.train$lambda[88]
+coef(lasso.train)[,88]
+lasso.pred = predict(lasso.train,s=bestlambda2,newx=x[test,])
+mean((lasso.pred-Y.test)^2)
+final.lasso = glmnet(x,Y,alpha=1,lambda=bestlambda2)
+coef(final.lasso)
+```
+
+
+```{r}
+## Taken absolute of value and sorted 
+matrix_coefA<-(abs(coef(final.lasso)))
+my_estimatesA <- matrix_coefA[ , 1]                     
+sort(my_estimatesA)[87:96]
+matrix_coef<-(coef(final.lasso))
+my_estimates <- matrix_coef[ , 1]                    
+Pos<-sort(my_estimates)[92:96]
+Neg<-sort(my_estimates)[0:5]
+## Extremes from both ends
+Pos
+Neg
+coef(final.lasso)
+```
+
+#### LASSO 1se ####
+
+```{r}
+bestlambda2.2=cv.out.lasso$lambda.1se
+bestlambda2.2
+which(grid==bestlambda2.2)
+lasso.train$lambda[79]
+coef(lasso.train)[,79]
+lasso.pred2 = predict(lasso.train,s=bestlambda2.2,newx=x[test,])
+mean((lasso.pred2-Y.test)^2)
+final.lasso2 = glmnet(x,Y,alpha=1,lambda=bestlambda2.2)
+```
+
+#### Test MSE for models ####
+
+```{r}
+m1<-lm(log(Avg.Salary.K.)~., data=salary)
+plot(m1)
+summary(m1)
+library(leaps)
+# we can also use regsubsets() to perform backward/forward stepwise selection 
+regfit.fwd = regsubsets(Avg.Salary.K.~.,data=salary,nvmax=100, method="forward")
+regfit.fwd.sum = summary(regfit.fwd)
+names(regfit.fwd.sum)
+n = dim(salary)[1]
+p = rowSums(regfit.fwd.sum$which) #number of predictors + intercept in the model 
+adjr2 = regfit.fwd.sum$adjr2
+cp = regfit.fwd.sum$cp
+rss = regfit.fwd.sum$rss
+AIC = n*log(rss/n) + 2*(p)
+BIC = n*log(rss/n) + (p)*log(n)
+which.min(BIC)
+which.min(AIC)
+which.min(cp)
+which.max(adjr2)
+coef(regfit.fwd,31)
+```
+
+#### MLR Model And Predictions ####
+
+```{r}
+model = lm(Avg.Salary.K.~.,data=salary)
+summary(model)
+str(salary)
+Xh = data.frame(Rating=3.8, state.region = "West", Size = "10000+", Type.of.ownership="Government",Competitors = "-1", Hourly = "0", Age = 40, Python = "1", excel = "1", sql = "1", sas = "0", aws = "1", tableau = "0", job_title_sim = "data scientist", Degree = "P")
+
+predict(model,newdata=Xh,interval='prediction',level=0.95)
+
+Xh2 = data.frame(Rating=4.5, state.region = "Northeast", Size = "501 - 1000", Type.of.ownership="Company - Public",Competitors = "-1", Hourly = "0", Age = 10, Python = "0", excel = "0", sql = "0", sas = "0", aws = "0", tableau = "0", job_title_sim = "analyst", Degree = "na")
+
+predict(model,newdata=Xh2,interval='prediction',level=0.95)
+```
+
+#### Prediction MSE ####
+
+```{r}
+set.seed(1)
+trainIndex = sample(1:731,731/2,rep = FALSE)
+
+traindata = salary[trainIndex,]
+testdata = salary[-trainIndex,]
+
+trainingModel = lm(Avg.Salary.K.~.,data=traindata)
+
+MSE_train = mean((traindata$Avg.Salary.K. - trainingModel$fitted.values)^2)
+MSE_train
+
+predictedValues = predict(trainingModel,testdata)
+MSE_test = mean((testdata$Avg.Salary.K. - predictedValues)^2)
+MSE_test
+```
+
+
+
