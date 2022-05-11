@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r}
-salary1 <- read.csv(file = 'ds_salary_data.csv')
+salary1 <- read.csv(file = 'ds_salary_data2.csv')
 region_key <- data.frame(state.abb, state.region)
 salary1$state.abb <- as.factor(salary1$Job.Location)
 salary<- merge(salary1,region_key, by = "state.abb")
@@ -26,6 +26,7 @@ salary$job_title_sim <- as.factor(salary$job_title_sim)
 salary$Degree <- as.factor(salary$Degree)
 salary<- salary[,-c(4)] 
 str(salary)
+salary
 ```
 
 #### Ridge Regression: ####
@@ -45,11 +46,11 @@ grid = 10^seq(10,-2,length=100)
 ridge_model = glmnet(x,Y,alpha=0, lambda=grid)
 ```
 
-#### Choosing Lambda ####
+#### Choosing Lambda and Ridge ####
 
 ```{r}
 ### split into training and testing
-set.seed(13)
+set.seed(1)
 train = sample(1:nrow(x), nrow(x)/2)
 test =(-train)
 Y.test = Y[test]
@@ -57,7 +58,7 @@ Y.test = Y[test]
 ridge.train = glmnet(x[train,],Y[train],alpha=0,lambda=grid)
 
 ### select an optimal lambda 
-set.seed(13)
+set.seed(1)
 cv.out = cv.glmnet(x[train,],Y[train],alpha = 0, lambda = grid) 
 #default performs 10-fold CV, but you can change this using the argument `nfolds` 
 plot(cv.out)
@@ -78,20 +79,20 @@ coef(final)
 
 ```
 
-#### RIDGE 2.2 ####
+#### RIDGE SE ####
 
 ```{r}
-bestlambdaR2.2=cv.out$lambda.1se
+bestlambdaR2.2 = cv.out$lambda.1se
 bestlambdaR2.2
 
 which(grid==bestlambdaR2.2)
-ridge.train$lambda[68]
-coef(ridge.train)[,68]
+ridge.train$lambda[71]
+coef(ridge.train)[,71]
 
 ridge.pred2 = predict(ridge.train,s=bestlambdaR2.2,newx=x[test,])
 mean((ridge.pred2-Y.test)^2)
 
-final.ridge = glmnet(x,Y,alpha=1,lambda=bestlambda2.2)
+final.ridge = glmnet(x,Y,alpha=1,lambda=bestlambdaR2.2)
 ```
 
 #### LASSO (Lowest Test MSE) ####
@@ -106,31 +107,13 @@ bestlambda2
 lasso.train = glmnet(x[train,],Y[train],alpha=1,lambda=grid)
 
 which(grid==bestlambda2)
-lasso.train$lambda[88]
-coef(lasso.train)[,88]
+lasso.train$lambda[86]
+coef(lasso.train)[,86]
 
 lasso.pred = predict(lasso.train,s=bestlambda2,newx=x[test,])
 mean((lasso.pred-Y.test)^2)
 
 final.lasso = glmnet(x,Y,alpha=1,lambda=bestlambda2)
-coef(final.lasso)
-```
-
-
-```{r}
-## Taken absolute of value and sorted 
-matrix_coefA<-(abs(coef(final.lasso)))
-my_estimatesA <- matrix_coefA[ , 1]                     
-sort(my_estimatesA)[87:96]
-
-matrix_coef<-(coef(final.lasso))
-my_estimates <- matrix_coef[ , 1]                    
-Pos<-sort(my_estimates)[92:96]
-Neg<-sort(my_estimates)[0:5]
-
-## Extremes from both ends
-Pos
-Neg
 coef(final.lasso)
 ```
 
@@ -141,8 +124,8 @@ bestlambda2.2=cv.out.lasso$lambda.1se
 bestlambda2.2
 
 which(grid==bestlambda2.2)
-lasso.train$lambda[79]
-coef(lasso.train)[,79]
+lasso.train$lambda[81]
+coef(lasso.train)[,81]
 
 lasso.pred2 = predict(lasso.train,s=bestlambda2.2,newx=x[test,])
 mean((lasso.pred2-Y.test)^2)
@@ -150,7 +133,7 @@ mean((lasso.pred2-Y.test)^2)
 final.lasso2 = glmnet(x,Y,alpha=1,lambda=bestlambda2.2)
 ```
 
-#### Test MSE for models ####
+#### Subset Selection, Just for fun ####
 
 ```{r}
 m1<-lm(log(Avg.Salary.K.)~., data=salary)
@@ -177,6 +160,36 @@ which.min(BIC)
 which.min(AIC)
 which.min(cp)
 which.max(adjr2)
-coef(regfit.fwd,31)
+coef(regfit.fwd,13)
+```
+
+#### Exploratory Analysis ####
+
+```{r}
+library(ggplot2)
+data <- read.csv(file = 'GroupProjectData.csv')
+data
+sum(is.na(data))
+data
+```
+
+```{r}
+ggplot(data, aes(x=Type.of.ownership, fill=Type.of.ownership)) + geom_bar(stat="count")+ theme(axis.text.x =element_blank())+ theme(legend.key.size = unit(.4, 'cm'))
+
+ggplot(data, aes(x=Size, fill=Size)) + geom_bar(stat="count")+ theme(axis.text.x =element_blank())+ theme(legend.key.size = unit(.4, 'cm'))+xlab("Company Size")
+```
+
+```{r}
+ggplot(data, aes(x=reorder(	Job.Location,	Job.Location, function(x)+length(x)), fill=	Job.Location)) + geom_bar(stat="count")+ theme(axis.text.x = element_text(angle = 90, vjust = 0.5))+xlab("	
+Job Location")
+
+
+ggplot(data, aes(x=reorder(	job_title_sim,	job_title_sim, function(x)+length(x)), fill=	job_title_sim)) + geom_bar(stat="count")+ theme(axis.text.x = element_text(angle = 90, vjust = 0.5))+xlab("	
+Job Tittle")
+
+reg = lm(Avg.Salary.K.~Age, data = data)
+plot(data$Age,data$Avg.Salary.K.)+abline(reg)
+reg2 = lm(Rating~Age, data = data)
+plot(data$Age,data$Rating)+abline(reg2)
 ```
 
